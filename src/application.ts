@@ -18,6 +18,7 @@ export type Rewrite = {
 
 export type CompletedAnalysis = {
   status: 'completed';
+  trace?: string[];
   parsing: { source: string; lineCount: number };
   original: string;
   report: {

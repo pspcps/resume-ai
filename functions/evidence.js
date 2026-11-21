@@ -140,7 +140,7 @@ async function readResume(body, extractPdf) {
   return { source, lines: value.replace(/\r\n?/g, '\n').split('\n') };
 }
 
-function createHandler({ verifyToken, extractPdf, generate }) {
+function createVerifiedHandler(verifyToken, execute) {
   return async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const fail = (error) => res.status(error.status).json({
@@ -155,26 +155,37 @@ function createHandler({ verifyToken, extractPdf, generate }) {
     }
     const body = req.body ?? {};
     if (typeof body !== 'object' || Array.isArray(body) || 'filePath' in body || 'userId' in body) {
-      return fail(new AnalysisError(400, 'unsupported_input', 'Submit resume text or file bytes directly.'));
-    }
-    const job = typeof body.jobDescription === 'string' ? body.jobDescription.trim() : '';
-    if (!job || job.length > MAX_JOB_CHARS) {
-      return fail(new AnalysisError(400, 'invalid_vacancy', 'Enter a job description of up to 12,000 characters.'));
+      return fail(new AnalysisError(400, 'unsupported_input', 'Send only documents from the current workspace.'));
     }
     try {
-      const { source, lines } = await readResume(body, extractPdf);
-      const report = parseReport(await generate(lines, job), lines, job);
-      return res.json({
-        status: 'completed',
-        parsing: { source, lineCount: lines.filter((line) => line.trim()).length },
-        original: lines.join('\n'),
-        report,
-      });
+      return res.json(await execute(body));
     } catch (error) {
       if (error instanceof AnalysisError) return fail(error);
-      return fail(new AnalysisError(503, 'analysis_unavailable', 'The analysis service is temporarily unavailable. Please retry.', true));
+      return fail(new AnalysisError(503, 'gemini_unavailable', 'Gemini is temporarily unavailable. Please retry.', true));
     }
   };
 }
 
-module.exports = { AnalysisError, createHandler, parseReport, readResume, MAX_FILE_BYTES };
+function createHandler({ verifyToken, extractPdf, generate }) {
+  return createVerifiedHandler(verifyToken, async (body) => {
+    const job = typeof body.jobDescription === 'string' ? body.jobDescription.trim() : '';
+    if (!job || job.length > MAX_JOB_CHARS) {
+      throw new AnalysisError(400, 'invalid_vacancy', 'Enter a job description of up to 12,000 characters.');
+    }
+    const { source, lines } = await readResume(body, extractPdf);
+    const output = await generate(lines, job);
+    const report = parseReport(typeof output === 'string' ? output : output.raw, lines, job);
+    return {
+      status: 'completed',
+      parsing: { source, lineCount: lines.filter((line) => line.trim()).length },
+      original: lines.join('\n'),
+      report,
+      trace: output.trace ?? [],
+    };
+  });
+}
+
+module.exports = {
+  AnalysisError, createVerifiedHandler, createHandler, invalidModelResponse, parseReport, readResume, MAX_FILE_BYTES,
+  MAX_RESUME_CHARS, MAX_JOB_CHARS,
+};

@@ -23,7 +23,7 @@ function Workspace() {
       <Routes>
         <Route path="/" element={null} />
         <Route path="/resume-builder" element={<ResumeBuilderPage profile={profile} onProfile={setProfile} />} />
-        <Route path="/privacy" element={<div className="workspace privacy"><h1>Privacy</h1><p>Live analysis sends the resume and vacancy to the configured backend and its model provider. The app does not write these documents or reports to storage. Clear the workspace to remove them from this session. Downloaded profiles and printed copies are managed on your device.</p></div>} />
+        <Route path="/privacy" element={<div className="workspace privacy"><h1>Privacy</h1><p>Live analysis sends the resume and vacancy to the configured backend and Gemini on Vertex AI. Using the Career Coach sends your question and recent chat, plus the current report’s resume and vacancy when available. The app does not write documents, chats, or reports to storage. Clear the workspace to remove them from this session. Downloaded profiles and printed copies are managed on your device.</p></div>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </main>

@@ -26,6 +26,7 @@ Technical leadership across multiple teams`;
 
 export const sampleReport: CompletedAnalysis = {
   status: 'completed',
+  trace: ['read_vacancy', 'read_resume_lines', 'search_resume', 'submit_report'],
   original: sampleResume,
   parsing: { source: 'sample text', lineCount: 10 },
   report: {

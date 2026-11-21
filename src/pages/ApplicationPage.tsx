@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { downloadProfile, MAX_FILE_BYTES, MAX_JOB_CHARS, MAX_RESUME_CHARS, tailoredProfile } from '../application';
 import type { AnalysisState, Finding, Profile } from '../application';
 import { analyze, liveConfigured, RequestError } from '../services/evidenceApi';
+import GeminiCoach, { AgentActivity } from './GeminiCoach';
 import { sampleJob, sampleReport, sampleResume } from '../sample';
 
 const findings: Record<Finding, string> = {
@@ -21,6 +22,7 @@ export default function ApplicationPage({ onProfile, onClear }: { onProfile: (pr
   const [approved, setApproved] = useState<Set<number>>(new Set());
   const [confirmed, setConfirmed] = useState<Set<number>>(new Set());
   const [fileError, setFileError] = useState('');
+  const [coachSession, setCoachSession] = useState(0);
   const [demo, setDemo] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const pending = useRef<AbortController | null>(null);
@@ -43,6 +45,7 @@ export default function ApplicationPage({ onProfile, onClear }: { onProfile: (pr
 
   function clearWorkspace() {
     resetReport();
+    setCoachSession((session) => session + 1);
     clearFile();
     setResume('');
     setJob('');
@@ -102,7 +105,7 @@ export default function ApplicationPage({ onProfile, onClear }: { onProfile: (pr
       <section className="hero">
         <div className="hero-copy">
           <h1>Tailor your resume<br /> to the <em>role.</em></h1>
-          <p>Compare your resume with a job description, see which statements support each requirement, and approve the edits you want to keep.</p>
+          <p>Gemini reads the vacancy, searches your resume for evidence, and proposes edits for your approval.</p>
         </div>
         <button className="button button-light" type="button" onClick={loadSample}>Explore sample <ArrowDown size={17} /></button>
       </section>
@@ -142,12 +145,12 @@ export default function ApplicationPage({ onProfile, onClear }: { onProfile: (pr
         <div className="form-actions">
           <button className="text-button" type="button" onClick={clearWorkspace}><Trash2 size={16} /> Clear workspace</button>
           <button className="button button-primary" disabled={!liveConfigured || (!file && !resume.trim()) || !job.trim() || state.status === 'processing'}>
-            {state.status === 'processing' ? <><LoaderCircle size={17} className="animate-spin" /> Comparing…</> : <>Compare with vacancy <ArrowRight size={17} /></>}
+            {state.status === 'processing' ? <><LoaderCircle size={17} className="animate-spin" /> Gemini is working…</> : <>Run Gemini agent <ArrowRight size={17} /></>}
           </button>
         </div>
         {!liveConfigured && <p className="setup-note">Live analysis requires a configured backend. The sample report and Resume Builder are available.</p>}
-        {state.status === 'processing' && <p role="status">Reading your resume and checking the vacancy requirements…</p>}
-        {state.status === 'failed' && <p role="alert" className="error">{state.error.message}{state.error.retryable && ' Select “Compare with vacancy” to try again.'}</p>}
+        {state.status === 'processing' && <p role="status">Gemini is inspecting the vacancy and resume. Tool activity will appear with the report.</p>}
+        {state.status === 'failed' && <p role="alert" className="error">{state.error.message}{state.error.retryable && ' Select “Run Gemini agent” to try again.'}</p>}
       </form>
 
       {report && <section id="evidence-report" className="report" aria-labelledby="report-title">
@@ -156,6 +159,7 @@ export default function ApplicationPage({ onProfile, onClear }: { onProfile: (pr
           <span className="parse"><FileCheck2 size={17} /> {report.parsing.lineCount} readable lines · {report.parsing.source}</span>
         </div>
         <div className="panel coverage">
+          {!!report.trace?.length && <AgentActivity trace={report.trace} sample={demo} />}
           <h3>Requirement coverage</h3>
           <p className="muted">“Not demonstrated” means no supporting statement was found in this resume.</p>
           <div className="table-scroll"><table>
@@ -202,6 +206,7 @@ export default function ApplicationPage({ onProfile, onClear }: { onProfile: (pr
           <p className="muted">Import the JSON in <a className="text-button" href="https://psdevtool.online/resume/">PSDevTool Resume Builder</a> to use its templates.</p>
         </div>
       </section>}
+      <GeminiCoach key={`${coachSession}-${demo ? 'sample' : report ? 'report' : 'general'}`} resume={report?.original ?? ''} job={report ? job : ''} sample={demo} />
     </div>
   );
 }

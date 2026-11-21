@@ -137,3 +137,20 @@ input[type=checkbox] { accent-color: var(--forest); width: 16px; height: 16px; f
   .resume-paper { padding: 0; min-height: auto; box-shadow: none; }
   .resume-paper p { orphans: 2; widows: 2; }
 }
+.agent-activity { margin-block: 0 16px; color: var(--forest); font-size: 13px; }
+.agent-activity summary { font-weight: 750; }
+.agent-activity ol { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; list-style: none; }
+.agent-activity li { padding: 4px 8px; border-radius: 6px; background: #edf3ed; }
+.coach { margin-top: 20px; }
+.coach-heading { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+.coach-heading .icon-tile { flex-shrink: 0; }
+.coach-heading .muted { margin-top: 2px; }
+.coach-clear { margin-left: auto; flex-shrink: 0; }
+.coach-thread { display: grid; gap: 8px; margin-bottom: 12px; }
+.coach-message { padding: 10px 12px; background: #f5f8f4; border-radius: 8px; font-size: 14px; }
+.coach-message p { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.coach-message .agent-activity { margin: 7px 0 0; }
+.coach-form label { font-size: 14px; font-weight: 700; }
+.coach-input { display: flex; gap: 8px; margin-top: 4px; }
+.coach-input input { flex: 1; min-width: 0; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.coach > .button { white-space: normal; text-align: left; }
