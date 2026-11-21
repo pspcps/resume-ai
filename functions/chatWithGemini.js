@@ -1,54 +1,25 @@
-const { onRequest } = require('firebase-functions/v2/https');
-const cors = require('./corsMiddleware');
-const { VertexAI } = require('@google-cloud/vertexai');
-const { PROJECT_ID, LOCATION } = require('./config');
-const { db } = require('./firebaseAdmin');
+const { AnalysisError, createVerifiedHandler, MAX_RESUME_CHARS, MAX_JOB_CHARS } = require('./evidence');
+const { geminiModel, geminiRequest } = require('./gemini');
+const { runAgent } = require('./applicationAgent');
 
-const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
-const geminiModel = vertexAI.getGenerativeModel({
-  model: 'gemini-2.5-pro',
-  generationConfig: { temperature: 0.4 },
-});
+function createChatHandler({ verifyToken, coach }) {
+  return createVerifiedHandler(verifyToken, async ({ message, history = [], resumeText = '', jobDescription = '' }) => {
+    if (typeof message !== 'string' || !message.trim() || message.length > 1_000
+        || typeof resumeText !== 'string' || resumeText.length > MAX_RESUME_CHARS
+        || typeof jobDescription !== 'string' || jobDescription.length > MAX_JOB_CHARS
+        || !Array.isArray(history) || history.length > 8 || history.length % 2 !== 0
+        || !history.every((entry, index) => entry && entry.role === (index % 2 === 0 ? 'user' : 'model')
+          && typeof entry.text === 'string' && entry.text.trim() && entry.text.length <= 4_000)) {
+      throw new AnalysisError(400, 'invalid_chat', 'Enter a question of up to 1,000 characters.');
+    }
+    return {
+      status: 'completed',
+      ...await coach({ message: message.trim(), history, vacancy: jobDescription, lines: resumeText.split('\n') }),
+    };
+  });
+}
 
-module.exports = onRequest(
-  {
-    memory: '2GiB',
-    timeoutSeconds: 120,
-    region: 'us-central1',
-  },
-  (req, res) => {
-    cors(req, res, async () => {
-      if (req.method !== 'POST') {
-        return res.status(405).send('Method Not Allowed');
-      }
-      const { userId, message } = req.body;
-      if (!userId || !message) {
-        return res.status(400).json({ error: 'userId and message are required' });
-      }
-      try {
-        // Fetch latest analysis for this user
-        const doc = await db.collection('userAnalyses').doc(userId).get();
-        const analysis = doc.exists ? doc.data().analysis : null;
-        let context = '';
-        if (analysis) {
-          context = `Here is the user's resume analysis: ${JSON.stringify(analysis)}\n`;
-        }
-        const prompt = `
-${context}
-You are an AI Career Coach. Respond conversationally and helpfully to the user's message below.
-
-User: "${message}"
-`;
-        const result = await geminiModel.generateContent({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.4 }
-        });
-        const reply = result.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        res.json({ reply });
-      } catch (error) {
-        console.error('Gemini chat error:', error);
-        res.status(500).json({ error: 'Failed to get Gemini response' });
-      }
-    });
-  }
-); 
+module.exports = geminiRequest((verifyToken) => createChatHandler({
+  verifyToken, coach: (options) => runAgent({ ...options, model: geminiModel() }),
+}));
+module.exports.createChatHandler = createChatHandler;
